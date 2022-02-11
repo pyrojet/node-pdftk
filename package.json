@@ -1,5 +1,5 @@
 {
-  "name": "node-pdftk",
+  "name": "@pyrojet/node-pdftk",
   "version": "2.1.3",
   "description": "A wrapper for pdftk with streams and promises.",
   "main": "index.js",
