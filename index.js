@@ -33,7 +33,7 @@ class PdfTk {
              * @member
              * @type {String}
              */
-            this._bin = this._bin || process.env.PDFTK_PATH || 'pdftk';
+            this._bin = this._bin || process.env.PDFTK_PATH || 'pdftk-all.jar';
 
             /**
              * Allows the plugin to ignore the PDFTK warnings. Useful with huge PDF files.
@@ -198,57 +198,28 @@ class PdfTk {
      * @param {Object} data - JSON data to transform to fdf.
      * @returns {Buffer} Fdf data as a buffer.
      */
-    static generateFdfFromJSON(data) {
-
-        const header = PdfTk.stringToBuffer(`
-            %FDF-1.2\n
-            ${String.fromCharCode(226) + String.fromCharCode(227) + String.fromCharCode(207) + String.fromCharCode(211)}\n
-            1 0 obj\n
-            <<\n
-            /FDF\n
-            <<\n
-            /Fields [\n
-        `);
+    static generateXfdfFromJSON(data) {
+        const header = PdfTk.stringToBuffer(`<?xml version="1.0" encoding="UTF-8"?>
+        <xfdf xmlns="http://ns.adobe.com/xfdf/" xml:space="preserve">
+          <fields>`);
 
         let body = PdfTk.stringToBuffer('');
 
         for (const prop in data) {
-            /* istanbul ignore else  */
             if (data.hasOwnProperty(prop) && data[prop] !== null && data[prop] !== undefined) {
                 body = Buffer.concat([
                     body,
-                    PdfTk.stringToBuffer('<<\n/T ('),
-                ]);
-                body = Buffer.concat([
-                    body,
-                    PdfTk.stringToBuffer(PdfTk.sanitizeForFdf(prop.toString()), 'binary'),
-                ]);
-                body = Buffer.concat([
-                    body,
-                    PdfTk.stringToBuffer(')\n/V('),
-                ]);
-                body = Buffer.concat([
-                    body,
-                    PdfTk.stringToBuffer(PdfTk.sanitizeForFdf(data[prop].toString()), 'binary'),
-                ]);
-                body = Buffer.concat([
-                    body,
-                    PdfTk.stringToBuffer(')\n>>\n'),
+                    PdfTk.stringToBuffer(`
+                    <field name="${prop.toString()}">
+                      <value>${data[prop].toString()}</value>
+                    </field>`),
                 ]);
             }
         }
 
         const footer = PdfTk.stringToBuffer(`
-            ]\n
-            >>\n
-            >>\n
-            endobj \n
-            trailer\n
-            \n
-            <<\n
-            /Root 1 0 R\n
-            >>\n
-            %%EOF\n
+        </fields>
+        </xfdf>
         `);
 
         return Buffer.concat([
@@ -336,7 +307,7 @@ class PdfTk {
 
                 this.args = this.args.concat(this.postArgs);
 
-                const child = spawn(this._bin, this.args);
+                const child = spawn("java", ['-jar', this._bin, ...this.args]);
 
                 const result = [];
 
@@ -507,7 +478,7 @@ class PdfTk {
     fillForm(data) {
         if (this.error) return this;
         try {
-            data = PdfTk.isString(data) ? data : PdfTk.generateFdfFromJSON(data);
+            data = PdfTk.isString(data) ? data : PdfTk.generateXfdfFromJSON(data);
             this._commandWithStdin('fill_form', data);
         } catch (err) {
             this.error = err;
@@ -786,6 +757,17 @@ class PdfTk {
         if (this.error) return this;
         try {
             this.postArgs.push('flatten');
+        } catch (err) {
+            this.error = err;
+        }
+        return this;
+    }
+
+    replace_font(font_location) {
+        if (this.error) return this;
+        try {
+            this.postArgs.push('replacement_font');
+            this.postArgs.push(font_location);
         } catch (err) {
             this.error = err;
         }
